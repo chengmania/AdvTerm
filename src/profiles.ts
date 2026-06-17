@@ -65,9 +65,9 @@ export const CLAUDE_PROFILE: ProfileDef = {
   },
 };
 
-// ── Gemini CLI ────────────────────────────────────────────────────────────────
+// ── Antigravity CLI (Google — replaces Gemini CLI as of June 18 2026) ────────
 
-const GEMINI_COMMANDS: SlashCommand[] = [
+const ANTIGRAVITY_COMMANDS: SlashCommand[] = [
   { cmd: '/help',       desc: 'Show available commands' },
   { cmd: '/clear',      desc: 'Clear conversation history' },
   { cmd: '/model',      desc: 'Switch AI model' },
@@ -75,21 +75,21 @@ const GEMINI_COMMANDS: SlashCommand[] = [
   { cmd: '/memory',     desc: 'Manage memory' },
   { cmd: '/theme',      desc: 'Change color theme' },
   { cmd: '/stats',      desc: 'Show session statistics' },
-  { cmd: '/about',      desc: 'About Gemini CLI' },
+  { cmd: '/about',      desc: 'About Antigravity CLI' },
   { cmd: '/mcp',        desc: 'Manage MCP servers' },
   { cmd: '/extensions', desc: 'Manage extensions' },
   { cmd: '/chat',       desc: 'Switch chat mode' },
-  { cmd: '/quit',       desc: 'Exit Gemini CLI' },
+  { cmd: '/quit',       desc: 'Exit Antigravity CLI' },
 ];
 
-export const GEMINI_PROFILE: ProfileDef = {
-  id: 'gemini',
-  name: 'Gemini CLI',
-  launchCommand: 'gemini',
-  installCommand: 'gemini',
-  authFilePath: '~/.gemini/settings.json',
-  installInstructions: 'npm install -g @google/gemini-cli',
-  slashCommands: GEMINI_COMMANDS,
+export const ANTIGRAVITY_PROFILE: ProfileDef = {
+  id: 'antigravity',
+  name: 'Antigravity',
+  launchCommand: 'antigravity',
+  installCommand: 'antigravity',
+  authFilePath: '~/.gemini/antigravity/installation_id',
+  installInstructions: 'See https://antigravity.google/product/antigravity-cli',
+  slashCommands: ANTIGRAVITY_COMMANDS,
 };
 
 // ── OpenCode ──────────────────────────────────────────────────────────────────
@@ -117,7 +117,7 @@ export const OPENCODE_PROFILE: ProfileDef = {
 // ── Registry ──────────────────────────────────────────────────────────────────
 
 export const PROFILES: Record<string, ProfileDef> = {
-  claude:   CLAUDE_PROFILE,
-  gemini:   GEMINI_PROFILE,
-  opencode: OPENCODE_PROFILE,
+  claude:      CLAUDE_PROFILE,
+  antigravity: ANTIGRAVITY_PROFILE,
+  opencode:    OPENCODE_PROFILE,
 };
