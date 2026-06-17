@@ -95,6 +95,15 @@ fn check_claude_installed() -> bool {
 }
 
 #[tauri::command]
+fn get_usage() -> Result<String, String> {
+    let output = std::process::Command::new("claude")
+        .args(["-p", "/usage"])
+        .output()
+        .map_err(|e| e.to_string())?;
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[tauri::command]
 fn check_claude_auth() -> bool {
     let home = std::env::var("HOME").unwrap_or_default();
     std::path::Path::new(&home)
@@ -119,6 +128,7 @@ pub fn run() {
             pty_close,
             check_claude_installed,
             check_claude_auth,
+            get_usage,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTabStore } from '../store';
+import UsageMeter from './UsageMeter';
 
 interface SlashCommand {
   cmd: string;
@@ -101,6 +102,9 @@ export default function Sidebar() {
           </button>
         )}
       </div>
+
+      {/* Usage meter */}
+      {installed && <UsageMeter />}
 
       {/* Slash-command palette */}
       <div style={{ padding: '8px', borderBottom: '1px solid #2a2a2a' }}>
