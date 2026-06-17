@@ -1,52 +1,34 @@
-// AdvTerm — sidebar (slash-command palette + Claude status)
+// AdvTerm — sidebar (profile-agnostic)
 // Author: chengmania KC3SMW
 
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTabStore } from '../store';
+import { PROFILES, type ProfileDef } from '../profiles';
 import UsageMeter from './UsageMeter';
-
-interface SlashCommand {
-  cmd: string;
-  desc: string;
-}
-
-const CLAUDE_COMMANDS: SlashCommand[] = [
-  { cmd: '/help',          desc: 'Show available commands' },
-  { cmd: '/clear',         desc: 'Clear conversation history' },
-  { cmd: '/compact',       desc: 'Compact conversation to save context' },
-  { cmd: '/status',        desc: 'Show account & session status' },
-  { cmd: '/usage',         desc: 'Show token usage & limits' },
-  { cmd: '/cost',          desc: 'Show session cost' },
-  { cmd: '/memory',        desc: 'Manage memory files' },
-  { cmd: '/model',         desc: 'Switch AI model' },
-  { cmd: '/config',        desc: 'Open configuration' },
-  { cmd: '/init',          desc: 'Initialize project CLAUDE.md' },
-  { cmd: '/review',        desc: 'Review current diff' },
-  { cmd: '/pr-comments',   desc: 'View PR review comments' },
-  { cmd: '/permissions',   desc: 'Manage tool permissions' },
-  { cmd: '/doctor',        desc: 'Run health checks' },
-  { cmd: '/vim',           desc: 'Toggle vim keybindings' },
-  { cmd: '/terminal',      desc: 'Open terminal in Claude' },
-  { cmd: '/login',         desc: 'Log in to Claude' },
-  { cmd: '/logout',        desc: 'Log out of Claude' },
-  { cmd: '/exit',          desc: 'Exit Claude Code' },
-];
 
 export default function Sidebar() {
   const { tabs, activeTabId } = useTabStore();
-  const [installed, setInstalled] = useState<boolean | null>(null);
-  const [authed, setAuthed] = useState<boolean | null>(null);
   const [filter, setFilter] = useState('');
   const filterRef = useRef<HTMLInputElement>(null);
 
-  const activeTab = tabs.find(t => t.id === activeTabId);
-  const isClaudeTab = activeTab?.profile === 'claude';
+  // Per-profile install/auth state
+  const [profileStatus, setProfileStatus] = useState<Record<string, { installed: boolean; authed: boolean }>>({});
 
   useEffect(() => {
-    invoke<boolean>('check_claude_installed').then(setInstalled);
-    invoke<boolean>('check_claude_auth').then(setAuthed);
+    Object.values(PROFILES).forEach(async p => {
+      const installed = await invoke<boolean>('check_command_exists', { name: p.installCommand });
+      const authed = p.authFilePath
+        ? await invoke<boolean>('check_file_exists', { path: p.authFilePath })
+        : true;
+      setProfileStatus(prev => ({ ...prev, [p.id]: { installed, authed } }));
+    });
   }, []);
+
+  const activeTab = tabs.find(t => t.id === activeTabId);
+  const profileId = activeTab?.profile;
+  const profile: ProfileDef | undefined = profileId ? PROFILES[profileId] : undefined;
+  const status = profileId ? profileStatus[profileId] : undefined;
 
   const sendCommand = (cmd: string) => {
     if (!activeTabId) return;
@@ -54,7 +36,7 @@ export default function Sidebar() {
     window.dispatchEvent(new CustomEvent('advterm:focus-terminal'));
   };
 
-  const filtered = CLAUDE_COMMANDS.filter(c =>
+  const filtered = (profile?.slashCommands ?? []).filter(c =>
     c.cmd.includes(filter.toLowerCase()) || c.desc.toLowerCase().includes(filter.toLowerCase())
   );
 
@@ -63,7 +45,8 @@ export default function Sidebar() {
       width: '240px',
       flexShrink: 0,
       background: '#161616',
-      borderLeft: '1px solid #2a2a2a', borderRight: '1px solid #2a2a2a',
+      borderLeft: '1px solid #2a2a2a',
+      borderRight: '1px solid #2a2a2a',
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
@@ -71,70 +54,58 @@ export default function Sidebar() {
       fontSize: '12px',
     }}>
 
-      {/* Claude status banner */}
+      {/* Active profile status banner */}
       <div style={{ padding: '10px 12px', borderBottom: '1px solid #2a2a2a', background: '#1a1a1a' }}>
         <div style={{ fontSize: '11px', fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-          Claude Code
+          {profile ? profile.name : 'No AI active'}
         </div>
-        {installed === null ? (
-          <span style={{ color: '#555' }}>Checking…</span>
-        ) : !installed ? (
-          <div style={{ color: '#e05252' }}>
-            Not installed
-            <div style={{ color: '#666', marginTop: '4px', fontSize: '11px' }}>
-              Run: npm i -g @anthropic-ai/claude-code
+
+        {!profile && (
+          <span style={{ color: '#555', fontSize: '11px' }}>Launch an AI tool in a tab</span>
+        )}
+
+        {profile && status && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, display: 'inline-block',
+                background: !status.installed ? '#e05252' : !status.authed ? '#e0a050' : '#4caf50' }} />
+              <span style={{ color: !status.installed ? '#c97070' : !status.authed ? '#c9a96e' : '#9dc99e', fontSize: '11px' }}>
+                {!status.installed ? 'Not installed' : !status.authed ? 'Not logged in' : 'Authenticated'}
+              </span>
             </div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: authed ? '#4caf50' : '#e0a050', display: 'inline-block', flexShrink: 0 }} />
-            <span style={{ color: authed ? '#9dc99e' : '#c9a96e' }}>
-              {authed ? 'Authenticated' : 'Not logged in'}
-            </span>
-          </div>
-        )}
-        {installed && !authed && (
-          <button
-            onClick={() => sendCommand('/login')}
-            style={{ marginTop: '8px', width: '100%', padding: '4px 0', background: '#2a3a2a', border: '1px solid #3a5a3a', borderRadius: '4px', color: '#7bc47e', cursor: 'pointer', fontSize: '11px' }}
-          >
-            Login
-          </button>
+            {status.installed && !status.authed && (
+              <button
+                onClick={() => sendCommand('/login')}
+                style={{ marginTop: '8px', width: '100%', padding: '4px 0', background: '#2a3a2a', border: '1px solid #3a5a3a', borderRadius: '4px', color: '#7bc47e', cursor: 'pointer', fontSize: '11px' }}
+              >Login</button>
+            )}
+          </>
         )}
       </div>
 
-      {/* Usage meter */}
-      {installed && <UsageMeter />}
+      {/* Usage meter — only when profile has usage config */}
+      {profile?.usage && <UsageMeter config={profile.usage} />}
 
-      {/* Slash-command palette */}
-      <div style={{ padding: '8px', borderBottom: '1px solid #2a2a2a' }}>
-        <input
-          ref={filterRef}
-          value={filter}
-          onChange={e => setFilter(e.target.value)}
-          onBlur={() => window.dispatchEvent(new CustomEvent('advterm:focus-terminal'))}
-          placeholder="Filter commands…"
-          style={{
-            width: '100%',
-            background: '#222',
-            border: '1px solid #333',
-            borderRadius: '4px',
-            padding: '4px 8px',
-            color: '#ccc',
-            fontSize: '12px',
-            outline: 'none',
-            boxSizing: 'border-box',
-          }}
-        />
-      </div>
-
-      {!isClaudeTab && (
-        <div style={{ padding: '12px', color: '#555', fontSize: '11px', textAlign: 'center' }}>
-          Switch to a Claude tab to use the command palette
+      {/* Slash-command filter */}
+      {profile && (
+        <div style={{ padding: '8px', borderBottom: '1px solid #2a2a2a' }}>
+          <input
+            ref={filterRef}
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            onBlur={() => window.dispatchEvent(new CustomEvent('advterm:focus-terminal'))}
+            placeholder="Filter commands…"
+            style={{
+              width: '100%', background: '#222', border: '1px solid #333',
+              borderRadius: '4px', padding: '4px 8px', color: '#ccc',
+              fontSize: '12px', outline: 'none', boxSizing: 'border-box',
+            }}
+          />
         </div>
       )}
 
-      {isClaudeTab && (
+      {/* 2-column slash palette */}
+      {profile && (
         <div style={{ flex: 1, overflowY: 'auto', padding: '6px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
             {filtered.map(c => (
@@ -143,28 +114,18 @@ export default function Sidebar() {
                 onClick={() => sendCommand(c.cmd)}
                 title={c.desc}
                 style={{
-                  textAlign: 'left',
-                  background: '#1a1a1a',
-                  border: '1px solid #252525',
-                  borderRadius: '4px',
-                  padding: '6px 8px',
-                  cursor: 'pointer',
-                  color: '#7eb8f7',
-                  fontFamily: 'monospace',
-                  fontSize: '12px',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
+                  textAlign: 'left', background: '#1a1a1a', border: '1px solid #252525',
+                  borderRadius: '4px', padding: '6px 8px', cursor: 'pointer',
+                  color: '#7eb8f7', fontFamily: 'monospace', fontSize: '12px',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#222')}
                 onMouseLeave={e => (e.currentTarget.style.background = '#1a1a1a')}
-              >
-                {c.cmd}
-              </button>
+              >{c.cmd}</button>
             ))}
-          {filtered.length === 0 && (
-            <div style={{ gridColumn: '1 / -1', padding: '12px', color: '#555', textAlign: 'center' }}>No matches</div>
-          )}
+            {filtered.length === 0 && (
+              <div style={{ gridColumn: '1 / -1', padding: '12px', color: '#555', textAlign: 'center' }}>No matches</div>
+            )}
           </div>
         </div>
       )}

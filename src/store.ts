@@ -4,13 +4,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { invoke } from '@tauri-apps/api/core';
-
-export type Profile = 'shell' | 'claude';
+import { PROFILES } from './profiles';
 
 export interface Tab {
   id: string;
   title: string;
-  profile: Profile;
+  profile: string;  // 'shell' or a profile ID from PROFILES
 }
 
 interface TabStore {
@@ -19,7 +18,7 @@ interface TabStore {
   addTab: () => Promise<void>;
   closeTab: (id: string) => Promise<void>;
   setActiveTab: (id: string) => void;
-  activateClaude: (id: string) => Promise<void>;
+  activateProfile: (tabId: string, profileId: string) => Promise<void>;
 }
 
 let tabCounter = 1;
@@ -33,18 +32,21 @@ export const useTabStore = create<TabStore>((set, get) => ({
     const title = `Shell ${tabCounter++}`;
     await invoke('pty_create', { tabId: id });
     set(state => ({
-      tabs: [...state.tabs, { id, title, profile: 'shell' as Profile }],
+      tabs: [...state.tabs, { id, title, profile: 'shell' }],
       activeTabId: id,
     }));
   },
 
-  // Launch `claude` inside the existing tab's PTY by sending the command,
-  // then mark the tab's profile as 'claude' so the sidebar palette activates.
-  activateClaude: async (id: string) => {
-    await invoke('pty_write', { tabId: id, data: 'claude\r' });
+  // Writes the profile's launch command into the existing PTY and upgrades profile
+  activateProfile: async (tabId: string, profileId: string) => {
+    const profile = PROFILES[profileId];
+    if (!profile) return;
+    await invoke('pty_write', { tabId, data: profile.launchCommand + '\r' });
     set(state => ({
       tabs: state.tabs.map(t =>
-        t.id === id ? { ...t, profile: 'claude' as Profile } : t
+        t.id === tabId
+          ? { ...t, profile: profileId, title: `${profile.name} ${tabCounter++}` }
+          : t
       ),
     }));
   },
@@ -65,7 +67,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
   setActiveTab: (id: string) => set({ activeTabId: id }),
 }));
 
-// --- Settings ---
+// ── Settings ──────────────────────────────────────────────────────────────────
 
 export type SidebarPosition = 'left' | 'right';
 

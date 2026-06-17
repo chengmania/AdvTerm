@@ -4,32 +4,34 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTabStore } from '../store';
+import { PROFILES } from '../profiles';
 
 interface Props {
   onOpenSettings: () => void;
 }
 
 export default function TabBar({ onOpenSettings }: Props) {
-  const { tabs, activeTabId, addTab, closeTab, setActiveTab, activateClaude } = useTabStore();
-  const [claudeInstalled, setClaudeInstalled] = useState(false);
+  const { tabs, activeTabId, addTab, closeTab, setActiveTab, activateProfile } = useTabStore();
+  const [installedProfiles, setInstalledProfiles] = useState<string[]>([]);
 
   useEffect(() => {
-    invoke<boolean>('check_claude_installed').then(setClaudeInstalled);
+    Promise.all(
+      Object.values(PROFILES).map(async p => {
+        const ok = await invoke<boolean>('check_command_exists', { name: p.installCommand });
+        return ok ? p.id : null;
+      })
+    ).then(results => setInstalledProfiles(results.filter(Boolean) as string[]));
   }, []);
 
   const activeTab = tabs.find(t => t.id === activeTabId);
-  const isAlreadyClaude = activeTab?.profile === 'claude';
+  const activeProfile = activeTab?.profile ?? 'shell';
 
   return (
     <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      background: '#111',
-      height: '36px',
-      gap: '2px',
-      padding: '0 4px',
-      flexShrink: 0,
-      borderBottom: '1px solid #2a2a2a',
+      display: 'flex', alignItems: 'center',
+      background: '#111', height: '36px',
+      gap: '2px', padding: '0 4px',
+      flexShrink: 0, borderBottom: '1px solid #2a2a2a',
     }}>
       {tabs.map(tab => (
         <div
@@ -45,8 +47,10 @@ export default function TabBar({ onOpenSettings }: Props) {
             border: tab.id === activeTabId ? '1px solid #444' : '1px solid transparent',
           }}
         >
-          {tab.profile === 'claude' && (
-            <span style={{ fontSize: '10px', background: '#2a3a4a', color: '#7eb8f7', borderRadius: '3px', padding: '1px 4px' }}>AI</span>
+          {tab.profile !== 'shell' && PROFILES[tab.profile] && (
+            <span style={{ fontSize: '10px', background: '#2a3a4a', color: '#7eb8f7', borderRadius: '3px', padding: '1px 4px' }}>
+              {PROFILES[tab.profile].name.split(' ')[0]}
+            </span>
           )}
           <span>{tab.title}</span>
           <span
@@ -66,24 +70,29 @@ export default function TabBar({ onOpenSettings }: Props) {
 
       <div style={{ width: '1px', background: '#2a2a2a', height: '18px', margin: '0 4px' }} />
 
-      {/* Launch Claude in current tab */}
-      <button
-        onClick={() => activeTabId && activateClaude(activeTabId)}
-        disabled={!claudeInstalled || isAlreadyClaude || !activeTabId}
-        title={
-          !claudeInstalled ? 'Claude Code not installed' :
-          isAlreadyClaude ? 'Claude already active in this tab' :
-          'Launch Claude Code in current tab'
-        }
-        style={{
-          background: (!claudeInstalled || isAlreadyClaude) ? 'none' : '#1a2a1a',
-          border: (!claudeInstalled || isAlreadyClaude) ? '1px solid transparent' : '1px solid #2a4a2a',
-          borderRadius: '4px',
-          color: (!claudeInstalled || isAlreadyClaude) ? '#444' : '#7bc47e',
-          cursor: (!claudeInstalled || isAlreadyClaude) ? 'not-allowed' : 'pointer',
-          fontSize: '11px', padding: '3px 8px',
-        }}
-      >Claude</button>
+      {/* One button per installed profile */}
+      {Object.values(PROFILES).map(p => {
+        const isInstalled = installedProfiles.includes(p.id);
+        const isActive = activeProfile === p.id;
+        return (
+          <button
+            key={p.id}
+            onClick={() => activeTabId && !isActive && activateProfile(activeTabId, p.id)}
+            disabled={!isInstalled || isActive || !activeTabId}
+            title={!isInstalled ? `${p.name} not installed` : isActive ? `${p.name} active` : `Launch ${p.name} in current tab`}
+            style={{
+              background: isInstalled && !isActive ? '#1a2a1a' : 'none',
+              border: isInstalled && !isActive ? '1px solid #2a4a2a' : '1px solid transparent',
+              borderRadius: '4px',
+              color: !isInstalled || isActive ? '#444' : '#7bc47e',
+              cursor: !isInstalled || isActive ? 'not-allowed' : 'pointer',
+              fontSize: '11px', padding: '3px 8px',
+            }}
+          >
+            {p.name.split(' ')[0]}
+          </button>
+        );
+      })}
 
       <div style={{ flex: 1 }} />
 

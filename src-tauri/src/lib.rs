@@ -85,31 +85,31 @@ fn pty_close(tab_id: String, state: State<Arc<PtyState>>) -> Result<(), String> 
     Ok(())
 }
 
+// Generic profile-agnostic helpers
+
 #[tauri::command]
-fn check_claude_installed() -> bool {
+fn check_command_exists(name: String) -> bool {
     std::process::Command::new("which")
-        .arg("claude")
+        .arg(&name)
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
 }
 
 #[tauri::command]
-fn get_usage() -> Result<String, String> {
-    let output = std::process::Command::new("claude")
-        .args(["-p", "/usage"])
-        .output()
-        .map_err(|e| e.to_string())?;
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+fn check_file_exists(path: String) -> bool {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let expanded = path.replace('~', &home);
+    std::path::Path::new(&expanded).exists()
 }
 
 #[tauri::command]
-fn check_claude_auth() -> bool {
-    let home = std::env::var("HOME").unwrap_or_default();
-    std::path::Path::new(&home)
-        .join(".claude")
-        .join(".credentials.json")
-        .exists()
+fn run_headless(program: String, args: Vec<String>) -> Result<String, String> {
+    let output = std::process::Command::new(&program)
+        .args(&args)
+        .output()
+        .map_err(|e| e.to_string())?;
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -126,9 +126,9 @@ pub fn run() {
             pty_write,
             pty_resize,
             pty_close,
-            check_claude_installed,
-            check_claude_auth,
-            get_usage,
+            check_command_exists,
+            check_file_exists,
+            run_headless,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

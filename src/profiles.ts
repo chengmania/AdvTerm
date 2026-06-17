@@ -1,0 +1,98 @@
+// AdvTerm — AI tool profile definitions
+// Author: chengmania KC3SMW
+// Adding a new AI tool = add a new entry here. No other code changes needed.
+
+export interface SlashCommand {
+  cmd: string;
+  desc: string;
+}
+
+export interface UsageConfig {
+  program: string;
+  args: string[];
+  sessionRegex: RegExp;
+  weekRegex: RegExp;
+}
+
+export interface ProfileDef {
+  id: string;
+  name: string;
+  launchCommand: string;
+  installCommand: string;   // binary checked with `which`
+  authFilePath?: string;    // file whose existence = authenticated
+  slashCommands: SlashCommand[];
+  usage?: UsageConfig;
+}
+
+// ── Claude Code ──────────────────────────────────────────────────────────────
+
+const CLAUDE_COMMANDS: SlashCommand[] = [
+  { cmd: '/help',          desc: 'Show available commands' },
+  { cmd: '/clear',         desc: 'Clear conversation history' },
+  { cmd: '/compact',       desc: 'Compact conversation to save context' },
+  { cmd: '/status',        desc: 'Show account & session status' },
+  { cmd: '/usage',         desc: 'Show token usage & limits' },
+  { cmd: '/cost',          desc: 'Show session cost' },
+  { cmd: '/memory',        desc: 'Manage memory files' },
+  { cmd: '/model',         desc: 'Switch AI model' },
+  { cmd: '/config',        desc: 'Open configuration' },
+  { cmd: '/init',          desc: 'Initialize project CLAUDE.md' },
+  { cmd: '/review',        desc: 'Review current diff' },
+  { cmd: '/pr-comments',   desc: 'View PR review comments' },
+  { cmd: '/permissions',   desc: 'Manage tool permissions' },
+  { cmd: '/doctor',        desc: 'Run health checks' },
+  { cmd: '/vim',           desc: 'Toggle vim keybindings' },
+  { cmd: '/terminal',      desc: 'Open terminal in Claude' },
+  { cmd: '/login',         desc: 'Log in to Claude' },
+  { cmd: '/logout',        desc: 'Log out of Claude' },
+  { cmd: '/exit',          desc: 'Exit Claude Code' },
+];
+
+export const CLAUDE_PROFILE: ProfileDef = {
+  id: 'claude',
+  name: 'Claude Code',
+  launchCommand: 'claude',
+  installCommand: 'claude',
+  authFilePath: '~/.claude/.credentials.json',
+  slashCommands: CLAUDE_COMMANDS,
+  usage: {
+    program: 'claude',
+    args: ['-p', '/usage'],
+    sessionRegex: /Current session:\s*(\d+)%\s*used[^·]*·\s*resets\s*(.+?)(?:\n|$)/,
+    weekRegex:    /Current week[^:]*:\s*(\d+)%\s*used[^·]*·\s*resets\s*(.+?)(?:\n|$)/,
+  },
+};
+
+// ── Gemini CLI ────────────────────────────────────────────────────────────────
+
+const GEMINI_COMMANDS: SlashCommand[] = [
+  { cmd: '/help',       desc: 'Show available commands' },
+  { cmd: '/clear',      desc: 'Clear conversation history' },
+  { cmd: '/model',      desc: 'Switch AI model' },
+  { cmd: '/tools',      desc: 'List available tools' },
+  { cmd: '/memory',     desc: 'Manage memory' },
+  { cmd: '/theme',      desc: 'Change color theme' },
+  { cmd: '/stats',      desc: 'Show session statistics' },
+  { cmd: '/about',      desc: 'About Gemini CLI' },
+  { cmd: '/mcp',        desc: 'Manage MCP servers' },
+  { cmd: '/extensions', desc: 'Manage extensions' },
+  { cmd: '/chat',       desc: 'Switch chat mode' },
+  { cmd: '/quit',       desc: 'Exit Gemini CLI' },
+];
+
+export const GEMINI_PROFILE: ProfileDef = {
+  id: 'gemini',
+  name: 'Gemini CLI',
+  launchCommand: 'gemini',
+  installCommand: 'gemini',
+  authFilePath: '~/.gemini/settings.json',
+  slashCommands: GEMINI_COMMANDS,
+  // usage: not yet available via headless mode for Gemini
+};
+
+// ── Registry ──────────────────────────────────────────────────────────────────
+
+export const PROFILES: Record<string, ProfileDef> = {
+  claude: CLAUDE_PROFILE,
+  gemini: GEMINI_PROFILE,
+};
