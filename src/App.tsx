@@ -39,7 +39,7 @@ export default function App() {
       instances.current.set(tab.id, instance);
 
       const container = containerRefs.current.get(tab.id);
-      if (container) { term.open(container); fit.fit(); }
+      if (container) { term.open(container); fit.fit(); term.focus(); }
 
       listen<string>(`pty-data-${tab.id}`, e => term.write(e.payload))
         .then(fn => { instance.unlisten = fn; });
@@ -59,7 +59,13 @@ export default function App() {
   useEffect(() => {
     if (!activeTabId) return;
     const inst = instances.current.get(activeTabId);
-    if (inst) setTimeout(() => inst.fit.fit(), 10);
+    if (inst) setTimeout(() => { inst.fit.fit(); inst.term.focus(); }, 10);
+  }, [activeTabId]);
+
+  useEffect(() => {
+    const focusActive = () => instances.current.get(activeTabId ?? '')?.term.focus();
+    window.addEventListener('advterm:focus-terminal', focusActive);
+    return () => window.removeEventListener('advterm:focus-terminal', focusActive);
   }, [activeTabId]);
 
   useEffect(() => {
@@ -78,7 +84,7 @@ export default function App() {
     if (!el) return;
     containerRefs.current.set(tabId, el);
     const inst = instances.current.get(tabId);
-    if (inst && !inst.term.element) { inst.term.open(el); inst.fit.fit(); }
+    if (inst && !inst.term.element) { inst.term.open(el); inst.fit.fit(); inst.term.focus(); }
   };
 
   return (

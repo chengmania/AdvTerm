@@ -16,9 +16,10 @@ export interface Tab {
 interface TabStore {
   tabs: Tab[];
   activeTabId: string | null;
-  addTab: (profile?: Profile) => Promise<void>;
+  addTab: () => Promise<void>;
   closeTab: (id: string) => Promise<void>;
   setActiveTab: (id: string) => void;
+  activateClaude: (id: string) => Promise<void>;
 }
 
 let tabCounter = 1;
@@ -27,14 +28,24 @@ export const useTabStore = create<TabStore>((set, get) => ({
   tabs: [],
   activeTabId: null,
 
-  addTab: async (profile: Profile = 'shell') => {
+  addTab: async () => {
     const id = `tab-${Date.now()}`;
-    const title = profile === 'claude' ? `Claude ${tabCounter++}` : `Shell ${tabCounter++}`;
-    const command = profile === 'claude' ? 'claude' : undefined;
-    await invoke('pty_create', { tabId: id, command });
+    const title = `Shell ${tabCounter++}`;
+    await invoke('pty_create', { tabId: id });
     set(state => ({
-      tabs: [...state.tabs, { id, title, profile }],
+      tabs: [...state.tabs, { id, title, profile: 'shell' as Profile }],
       activeTabId: id,
+    }));
+  },
+
+  // Launch `claude` inside the existing tab's PTY by sending the command,
+  // then mark the tab's profile as 'claude' so the sidebar palette activates.
+  activateClaude: async (id: string) => {
+    await invoke('pty_write', { tabId: id, data: 'claude\r' });
+    set(state => ({
+      tabs: state.tabs.map(t =>
+        t.id === id ? { ...t, profile: 'claude' as Profile } : t
+      ),
     }));
   },
 

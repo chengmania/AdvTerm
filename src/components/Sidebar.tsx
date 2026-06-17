@@ -49,8 +49,8 @@ export default function Sidebar() {
 
   const sendCommand = (cmd: string) => {
     if (!activeTabId) return;
-    invoke('pty_write', { tabId: activeTabId, data: cmd });
-    filterRef.current?.blur();
+    invoke('pty_write', { tabId: activeTabId, data: cmd + '\r' }).catch(console.error);
+    window.dispatchEvent(new CustomEvent('advterm:focus-terminal'));
   };
 
   const filtered = CLAUDE_COMMANDS.filter(c =>
@@ -108,6 +108,7 @@ export default function Sidebar() {
           ref={filterRef}
           value={filter}
           onChange={e => setFilter(e.target.value)}
+          onBlur={() => window.dispatchEvent(new CustomEvent('advterm:focus-terminal'))}
           placeholder="Filter commands…"
           style={{
             width: '100%',

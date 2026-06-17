@@ -10,12 +10,15 @@ interface Props {
 }
 
 export default function TabBar({ onOpenSettings }: Props) {
-  const { tabs, activeTabId, addTab, closeTab, setActiveTab } = useTabStore();
+  const { tabs, activeTabId, addTab, closeTab, setActiveTab, activateClaude } = useTabStore();
   const [claudeInstalled, setClaudeInstalled] = useState(false);
 
   useEffect(() => {
     invoke<boolean>('check_claude_installed').then(setClaudeInstalled);
   }, []);
+
+  const activeTab = tabs.find(t => t.id === activeTabId);
+  const isAlreadyClaude = activeTab?.profile === 'claude';
 
   return (
     <div style={{
@@ -56,29 +59,34 @@ export default function TabBar({ onOpenSettings }: Props) {
 
       {/* New shell tab */}
       <button
-        onClick={() => addTab('shell')}
+        onClick={() => addTab()}
         title="New shell tab"
         style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '20px', lineHeight: 1, padding: '0 6px' }}
       >+</button>
 
-      {/* New Claude tab */}
+      <div style={{ width: '1px', background: '#2a2a2a', height: '18px', margin: '0 4px' }} />
+
+      {/* Launch Claude in current tab */}
       <button
-        onClick={() => addTab('claude')}
-        disabled={!claudeInstalled}
-        title={claudeInstalled ? 'New Claude Code tab' : 'Claude Code not installed'}
+        onClick={() => activeTabId && activateClaude(activeTabId)}
+        disabled={!claudeInstalled || isAlreadyClaude || !activeTabId}
+        title={
+          !claudeInstalled ? 'Claude Code not installed' :
+          isAlreadyClaude ? 'Claude already active in this tab' :
+          'Launch Claude Code in current tab'
+        }
         style={{
-          background: claudeInstalled ? '#1a2a1a' : 'none',
-          border: claudeInstalled ? '1px solid #2a4a2a' : '1px solid transparent',
-          borderRadius: '4px', color: claudeInstalled ? '#7bc47e' : '#444',
-          cursor: claudeInstalled ? 'pointer' : 'not-allowed',
-          fontSize: '11px', padding: '3px 8px', marginLeft: '2px',
+          background: (!claudeInstalled || isAlreadyClaude) ? 'none' : '#1a2a1a',
+          border: (!claudeInstalled || isAlreadyClaude) ? '1px solid transparent' : '1px solid #2a4a2a',
+          borderRadius: '4px',
+          color: (!claudeInstalled || isAlreadyClaude) ? '#444' : '#7bc47e',
+          cursor: (!claudeInstalled || isAlreadyClaude) ? 'not-allowed' : 'pointer',
+          fontSize: '11px', padding: '3px 8px',
         }}
       >Claude</button>
 
-      {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* Settings */}
       <button
         onClick={onOpenSettings}
         title="Settings"
