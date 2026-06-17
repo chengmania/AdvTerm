@@ -60,7 +60,7 @@ export default function Sidebar() {
 
   return (
     <div style={{
-      width: '220px',
+      width: '240px',
       flexShrink: 0,
       background: '#161616',
       borderLeft: '1px solid #2a2a2a', borderRight: '1px solid #2a2a2a',
@@ -135,33 +135,37 @@ export default function Sidebar() {
       )}
 
       {isClaudeTab && (
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          {filtered.map(c => (
-            <button
-              key={c.cmd}
-              onClick={() => sendCommand(c.cmd)}
-              title={c.desc}
-              style={{
-                display: 'block',
-                width: '100%',
-                textAlign: 'left',
-                background: 'none',
-                border: 'none',
-                borderBottom: '1px solid #1e1e1e',
-                padding: '7px 12px',
-                cursor: 'pointer',
-                color: 'inherit',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#1f1f1f')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-            >
-              <span style={{ color: '#7eb8f7', fontFamily: 'monospace', display: 'block' }}>{c.cmd}</span>
-              <span style={{ color: '#666', fontSize: '11px' }}>{c.desc}</span>
-            </button>
-          ))}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '6px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+            {filtered.map(c => (
+              <button
+                key={c.cmd}
+                onClick={() => sendCommand(c.cmd)}
+                title={c.desc}
+                style={{
+                  textAlign: 'left',
+                  background: '#1a1a1a',
+                  border: '1px solid #252525',
+                  borderRadius: '4px',
+                  padding: '6px 8px',
+                  cursor: 'pointer',
+                  color: '#7eb8f7',
+                  fontFamily: 'monospace',
+                  fontSize: '12px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#222')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#1a1a1a')}
+              >
+                {c.cmd}
+              </button>
+            ))}
           {filtered.length === 0 && (
-            <div style={{ padding: '12px', color: '#555', textAlign: 'center' }}>No matches</div>
+            <div style={{ gridColumn: '1 / -1', padding: '12px', color: '#555', textAlign: 'center' }}>No matches</div>
           )}
+          </div>
         </div>
       )}
     </div>
