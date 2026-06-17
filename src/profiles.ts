@@ -18,8 +18,9 @@ export interface ProfileDef {
   id: string;
   name: string;
   launchCommand: string;
-  installCommand: string;   // binary checked with `which`
-  authFilePath?: string;    // file whose existence = authenticated
+  installCommand: string;       // binary checked with `which`
+  authFilePath?: string;        // file whose existence = authenticated
+  installInstructions: string;  // command the user runs to install this tool
   slashCommands: SlashCommand[];
   usage?: UsageConfig;
 }
@@ -54,6 +55,7 @@ export const CLAUDE_PROFILE: ProfileDef = {
   launchCommand: 'claude',
   installCommand: 'claude',
   authFilePath: '~/.claude/.credentials.json',
+  installInstructions: 'npm install -g @anthropic-ai/claude-code',
   slashCommands: CLAUDE_COMMANDS,
   usage: {
     program: 'claude',
@@ -86,13 +88,36 @@ export const GEMINI_PROFILE: ProfileDef = {
   launchCommand: 'gemini',
   installCommand: 'gemini',
   authFilePath: '~/.gemini/settings.json',
+  installInstructions: 'npm install -g @google/gemini-cli',
   slashCommands: GEMINI_COMMANDS,
-  // usage: not yet available via headless mode for Gemini
+};
+
+// ── OpenCode ──────────────────────────────────────────────────────────────────
+
+const OPENCODE_COMMANDS: SlashCommand[] = [
+  { cmd: '/help',    desc: 'Show available commands' },
+  { cmd: '/model',   desc: 'Switch AI model' },
+  { cmd: '/clear',   desc: 'Clear session' },
+  { cmd: '/compact', desc: 'Compact conversation' },
+  { cmd: '/share',   desc: 'Share session' },
+  { cmd: '/export',  desc: 'Export session data' },
+  { cmd: '/exit',    desc: 'Exit OpenCode' },
+];
+
+export const OPENCODE_PROFILE: ProfileDef = {
+  id: 'opencode',
+  name: 'OpenCode',
+  launchCommand: 'opencode',
+  installCommand: 'opencode',
+  authFilePath: '~/.local/share/opencode/auth.json',
+  installInstructions: 'curl -fsSL https://opencode.ai/install | bash',
+  slashCommands: OPENCODE_COMMANDS,
 };
 
 // ── Registry ──────────────────────────────────────────────────────────────────
 
 export const PROFILES: Record<string, ProfileDef> = {
-  claude: CLAUDE_PROFILE,
-  gemini: GEMINI_PROFILE,
+  claude:   CLAUDE_PROFILE,
+  gemini:   GEMINI_PROFILE,
+  opencode: OPENCODE_PROFILE,
 };
