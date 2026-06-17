@@ -1,18 +1,22 @@
-// AdvTerm — tab state
+// AdvTerm — app state
 // Author: chengmania KC3SMW
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { invoke } from '@tauri-apps/api/core';
+
+export type Profile = 'shell' | 'claude';
 
 export interface Tab {
   id: string;
   title: string;
+  profile: Profile;
 }
 
 interface TabStore {
   tabs: Tab[];
   activeTabId: string | null;
-  addTab: () => Promise<void>;
+  addTab: (profile?: Profile) => Promise<void>;
   closeTab: (id: string) => Promise<void>;
   setActiveTab: (id: string) => void;
 }
@@ -23,12 +27,13 @@ export const useTabStore = create<TabStore>((set, get) => ({
   tabs: [],
   activeTabId: null,
 
-  addTab: async () => {
+  addTab: async (profile: Profile = 'shell') => {
     const id = `tab-${Date.now()}`;
-    const title = `Shell ${tabCounter++}`;
-    await invoke('pty_create', { tabId: id });
+    const title = profile === 'claude' ? `Claude ${tabCounter++}` : `Shell ${tabCounter++}`;
+    const command = profile === 'claude' ? 'claude' : undefined;
+    await invoke('pty_create', { tabId: id, command });
     set(state => ({
-      tabs: [...state.tabs, { id, title }],
+      tabs: [...state.tabs, { id, title, profile }],
       activeTabId: id,
     }));
   },
@@ -48,3 +53,22 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
   setActiveTab: (id: string) => set({ activeTabId: id }),
 }));
+
+// --- Settings ---
+
+export type SidebarPosition = 'left' | 'right';
+
+interface SettingsStore {
+  sidebarPosition: SidebarPosition;
+  setSidebarPosition: (pos: SidebarPosition) => void;
+}
+
+export const useSettingsStore = create<SettingsStore>()(
+  persist(
+    (set) => ({
+      sidebarPosition: 'right',
+      setSidebarPosition: (sidebarPosition) => set({ sidebarPosition }),
+    }),
+    { name: 'advterm-settings' }
+  )
+);
