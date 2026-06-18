@@ -12,8 +12,9 @@ import '@xterm/xterm/css/xterm.css';
 import './App.css';
 import { useTabStore, useSettingsStore } from './store';
 import { PROFILES } from './profiles';
-import { getTheme } from './themes';
+import { getTheme, hexToRgba } from './themes';
 import { termBridge } from './terminalBridge';
+import SnowCanvas from './components/SnowCanvas';
 import TabBar from './components/TabBar';
 import Sidebar from './components/Sidebar';
 import SettingsModal from './components/SettingsModal';
@@ -77,7 +78,7 @@ interface TermInstance {
 
 export default function App() {
   const { tabs, activeTabId, addTab, closeTab, setActiveTab } = useTabStore();
-  const { sidebarPosition, fontSize, fontFamily, terminalTheme } = useSettingsStore();
+  const { sidebarPosition, fontSize, fontFamily, terminalTheme, terminalOpacity } = useSettingsStore();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen]         = useState(false);
   const [searchOpen, setSearchOpen]     = useState(false);
@@ -95,9 +96,9 @@ export default function App() {
   useEffect(() => { storeRef.current = { tabs, activeTabId, addTab, closeTab, setActiveTab }; },
     [tabs, activeTabId, addTab, closeTab, setActiveTab]);
 
-  const settingsRef = useRef({ fontSize, fontFamily, terminalTheme });
-  useEffect(() => { settingsRef.current = { fontSize, fontFamily, terminalTheme }; },
-    [fontSize, fontFamily, terminalTheme]);
+  const settingsRef = useRef({ fontSize, fontFamily, terminalTheme, terminalOpacity });
+  useEffect(() => { settingsRef.current = { fontSize, fontFamily, terminalTheme, terminalOpacity }; },
+    [fontSize, fontFamily, terminalTheme, terminalOpacity]);
 
   // Reset input classifier + notification state when active tab changes
   useEffect(() => {
@@ -118,10 +119,12 @@ export default function App() {
     for (const tab of tabs) {
       if (instances.current.has(tab.id)) continue;
 
-      const { fontSize, fontFamily, terminalTheme } = settingsRef.current;
+      const { fontSize, fontFamily, terminalTheme, terminalOpacity } = settingsRef.current;
       const theme = getTheme(terminalTheme);
+      const bgColor = theme.xterm.background ?? '#1a1a1a';
+      const xtermTheme = { ...theme.xterm, background: hexToRgba(bgColor, terminalOpacity) };
 
-      const term   = new Terminal({ cursorBlink: true, fontSize, fontFamily, theme: theme.xterm });
+      const term   = new Terminal({ cursorBlink: true, fontSize, fontFamily, theme: xtermTheme, allowTransparency: true });
       const fit    = new FitAddon();
       const search = new SearchAddon();
       term.loadAddon(fit);
@@ -210,16 +213,18 @@ export default function App() {
     });
   }, [tabs]);
 
-  // Apply font/theme changes to all existing terminals live
+  // Apply font/theme/opacity changes to all existing terminals live
   useEffect(() => {
     const theme = getTheme(terminalTheme);
+    const bgColor = theme.xterm.background ?? '#1a1a1a';
+    const xtermTheme = { ...theme.xterm, background: hexToRgba(bgColor, terminalOpacity) };
     instances.current.forEach(({ term, fit }) => {
       term.options.fontSize = fontSize;
       term.options.fontFamily = fontFamily;
-      term.options.theme = theme.xterm;
+      term.options.theme = xtermTheme;
       fit.fit();
     });
-  }, [fontSize, fontFamily, terminalTheme]);
+  }, [fontSize, fontFamily, terminalTheme, terminalOpacity]);
 
   useEffect(() => {
     if (!activeTabId) return;
@@ -297,19 +302,22 @@ export default function App() {
       : inst.search.findPrevious(query, opts);
   };
 
-  const isCRT = getTheme(terminalTheme).crtEffect;
+  const activeTheme = getTheme(terminalTheme);
+  const isCRT   = activeTheme.crtEffect;
+  const isSnow  = activeTheme.snowEffect;
+  const containerClass = isCRT ? 'crt-container' : isSnow ? 'futurist-container' : '';
   const activeProfile = tabs.find(t => t.id === activeTabId)?.profile ?? 'shell';
   const badge = inputType ? INPUT_BADGE[inputType] : null;
   // Only show classifier badge for AI profiles
   const showBadge = badge && PROFILES[activeProfile] !== undefined;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: '#000' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: `rgba(0,0,0,${terminalOpacity})` }}>
       <TabBar onOpenSettings={() => setSettingsOpen(true)} onOpenHelp={() => setHelpOpen(true)} />
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {sidebarPosition === 'left' && <Sidebar />}
         <div
-          className={isCRT ? 'crt-container' : ''}
+          className={containerClass}
           style={{ flex: 1, position: 'relative', overflow: 'hidden' }}
         >
           {tabs.map(tab => (
@@ -319,6 +327,9 @@ export default function App() {
               style={{ position: 'absolute', inset: 0, display: tab.id === activeTabId ? 'block' : 'none' }}
             />
           ))}
+
+          {/* Futurist animated snow */}
+          {isSnow && <SnowCanvas />}
 
           {/* Scrollback search bar */}
           {searchOpen && (

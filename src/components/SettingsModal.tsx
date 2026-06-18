@@ -23,6 +23,7 @@ export default function SettingsModal({ onClose }: Props) {
     fontSize, setFontSize,
     fontFamily, setFontFamily,
     terminalTheme, setTerminalTheme,
+    terminalOpacity, setTerminalOpacity,
     importProfiles,
   } = useSettingsStore();
   const [sessionMsg, setSessionMsg] = useState<string | null>(null);
@@ -252,6 +253,21 @@ export default function SettingsModal({ onClose }: Props) {
         {/* Terminal appearance */}
         <section style={{ marginBottom: '24px' }}>
           <div style={sectionLabel}>Terminal Appearance</div>
+
+          {/* Opacity */}
+          <div style={{ marginBottom: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ fontSize: '12px', color: '#aaa' }}>Transparency</span>
+              <span style={{ fontSize: '12px', color: '#7eb8f7', fontWeight: 600 }}>
+                {terminalOpacity === 1 ? 'Off' : `${Math.round((1 - terminalOpacity) * 100)}%`}
+              </span>
+            </div>
+            <input
+              type="range" min={0.2} max={1.0} step={0.05} value={terminalOpacity}
+              onChange={e => setTerminalOpacity(Number(e.target.value))}
+              style={{ width: '100%', accentColor: '#4a7aa0' }}
+            />
+          </div>
 
           {/* Font size */}
           <div style={{ marginBottom: '14px' }}>

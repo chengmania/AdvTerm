@@ -113,11 +113,13 @@ interface SettingsStore {
   fontSize: number;
   fontFamily: string;
   terminalTheme: string;
+  terminalOpacity: number;
   customProfiles: ProfileDef[];
   setSidebarPosition: (pos: SidebarPosition) => void;
   setFontSize: (size: number) => void;
   setFontFamily: (family: string) => void;
   setTerminalTheme: (theme: string) => void;
+  setTerminalOpacity: (opacity: number) => void;
   importProfiles: (profiles: ProfileDef[]) => void;
   removeCustomProfile: (id: string) => void;
 }
@@ -129,11 +131,13 @@ export const useSettingsStore = create<SettingsStore>()(
       fontSize: 14,
       fontFamily: 'monospace',
       terminalTheme: 'dark',
+      terminalOpacity: 1.0,
       customProfiles: [],
       setSidebarPosition: (sidebarPosition) => set({ sidebarPosition }),
       setFontSize: (fontSize) => set({ fontSize }),
       setFontFamily: (fontFamily) => set({ fontFamily }),
       setTerminalTheme: (terminalTheme) => set({ terminalTheme }),
+      setTerminalOpacity: (terminalOpacity) => set({ terminalOpacity }),
       importProfiles: (incoming) => set(state => {
         const existing = state.customProfiles.filter(
           p => !incoming.find(i => i.id === p.id)

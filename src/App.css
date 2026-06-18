@@ -10,7 +10,7 @@ html, body, #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #000;
+  background: transparent;
 }
 
 /* Retro CRT effect overlay */
@@ -53,4 +53,37 @@ html, body, #root {
 .crt-container .xterm {
   animation: crt-flicker 6s infinite;
   filter: brightness(1.05) contrast(1.1) saturate(1.2);
+}
+
+/* Futurist theme — scanlines over snow canvas */
+.futurist-container {
+  position: relative;
+}
+
+.futurist-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 20, 40, 0.22) 0px,
+    rgba(0, 20, 40, 0.22) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.futurist-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 5, 20, 0.55) 100%);
+}
+
+.futurist-container .xterm {
+  filter: brightness(1.1) contrast(1.05) saturate(1.3);
 }

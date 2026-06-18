@@ -13,6 +13,7 @@ export default function Sidebar() {
   const [filter, setFilter] = useState('');
   const filterRef = useRef<HTMLInputElement>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [hoveredCmd, setHoveredCmd] = useState<{ cmd: string; desc: string } | null>(null);
 
   // Per-profile install/auth state
   const [profileStatus, setProfileStatus] = useState<Record<string, { installed: boolean; authed: boolean }>>({});
@@ -145,28 +146,47 @@ export default function Sidebar() {
 
       {/* 2-column slash palette */}
       {profile && (
-        <div style={{ flex: 1, overflowY: 'auto', padding: '6px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-            {filtered.map(c => (
-              <button
-                key={c.cmd}
-                onClick={() => sendCommand(c.cmd)}
-                title={c.desc}
-                style={{
-                  textAlign: 'left', background: '#1a1a1a', border: '1px solid #252525',
-                  borderRadius: '4px', padding: '6px 8px', cursor: 'pointer',
-                  color: '#7eb8f7', fontFamily: 'monospace', fontSize: '12px',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#222')}
-                onMouseLeave={e => (e.currentTarget.style.background = '#1a1a1a')}
-              >{c.cmd}</button>
-            ))}
-            {filtered.length === 0 && (
-              <div style={{ gridColumn: '1 / -1', padding: '12px', color: '#555', textAlign: 'center' }}>No matches</div>
+        <>
+          {/* Hover description bar */}
+          <div style={{
+            padding: '5px 10px', minHeight: '34px',
+            borderBottom: '1px solid #1e1e1e',
+            background: '#111',
+            display: 'flex', alignItems: 'center',
+          }}>
+            {hoveredCmd ? (
+              <span style={{ fontSize: '11px', lineHeight: 1.4 }}>
+                <span style={{ color: '#7eb8f7', fontFamily: 'monospace' }}>{hoveredCmd.cmd}</span>
+                <span style={{ color: '#666' }}> — </span>
+                <span style={{ color: '#999' }}>{hoveredCmd.desc}</span>
+              </span>
+            ) : (
+              <span style={{ fontSize: '11px', color: '#333' }}>Hover a command for details</span>
             )}
           </div>
-        </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: '6px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+              {filtered.map(c => (
+                <button
+                  key={c.cmd}
+                  onClick={() => sendCommand(c.cmd)}
+                  style={{
+                    textAlign: 'left', background: '#1a1a1a', border: '1px solid #252525',
+                    borderRadius: '4px', padding: '6px 8px', cursor: 'pointer',
+                    color: '#7eb8f7', fontFamily: 'monospace', fontSize: '12px',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#222'; setHoveredCmd(c); }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#1a1a1a'; setHoveredCmd(null); }}
+                >{c.cmd}</button>
+              ))}
+              {filtered.length === 0 && (
+                <div style={{ gridColumn: '1 / -1', padding: '12px', color: '#555', textAlign: 'center' }}>No matches</div>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

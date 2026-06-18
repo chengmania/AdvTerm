@@ -8,7 +8,16 @@ export interface TermThemeDef {
   name: string;
   preview: string;  // background color for the swatch
   crtEffect?: boolean;
+  snowEffect?: boolean;
   xterm: ITheme;
+}
+
+export function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 export const TERM_THEMES: TermThemeDef[] = [
@@ -126,6 +135,27 @@ export const TERM_THEMES: TermThemeDef[] = [
       magenta: '#ff00ff',  brightMagenta: '#ff66ff',
       cyan: '#00ffff',     brightCyan: '#66ffff',
       white: '#00ff41',    brightWhite: '#aaffaa',
+    },
+  },
+  {
+    id: 'futurist',
+    name: 'Futurist',
+    preview: '#050d1a',
+    snowEffect: true,
+    xterm: {
+      background: '#050d1a',
+      foreground: '#00e5ff',
+      cursor: '#00e5ff',
+      cursorAccent: '#050d1a',
+      selectionBackground: '#00e5ff33',
+      black: '#050d1a',      brightBlack: '#1a2a3a',
+      red: '#ff4466',        brightRed: '#ff6688',
+      green: '#00ff88',      brightGreen: '#44ffaa',
+      yellow: '#ffee44',     brightYellow: '#ffff88',
+      blue: '#4488ff',       brightBlue: '#88aaff',
+      magenta: '#dd44ff',    brightMagenta: '#ee88ff',
+      cyan: '#00e5ff',       brightCyan: '#88eeff',
+      white: '#aaccdd',      brightWhite: '#ffffff',
     },
   },
 ];

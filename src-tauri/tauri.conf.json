@@ -14,7 +14,8 @@
       {
         "title": "AdvTerm",
         "width": 1200,
-        "height": 700
+        "height": 700,
+        "transparent": true
       }
     ],
     "security": {
