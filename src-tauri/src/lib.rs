@@ -16,10 +16,19 @@ pub struct PtyState {
     tabs: Mutex<HashMap<String, TabPty>>,
 }
 
+// Stores the --cwd arg so pty_create can pass it directly to CommandBuilder
+pub struct InitialCwdState(Mutex<Option<String>>);
+
+#[tauri::command]
+fn get_initial_cwd(state: State<Arc<InitialCwdState>>) -> Option<String> {
+    state.0.lock().unwrap().clone()
+}
+
 #[tauri::command]
 fn pty_create(
     tab_id: String,
     command: Option<String>,
+    cwd: Option<String>,
     app: AppHandle,
     state: State<Arc<PtyState>>,
 ) -> Result<(), String> {
@@ -30,8 +39,12 @@ fn pty_create(
 
     let launch = command
         .unwrap_or_else(|| std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string()));
+    let mut cmd = CommandBuilder::new(&launch);
+    if let Some(ref dir) = cwd {
+        cmd.cwd(dir);
+    }
     pair.slave
-        .spawn_command(CommandBuilder::new(&launch))
+        .spawn_command(cmd)
         .map_err(|e| e.to_string())?;
 
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
@@ -145,10 +158,20 @@ pub fn run() {
         tabs: Mutex::new(HashMap::new()),
     });
 
+    // Parse --cwd before building the app so it's available in managed state
+    let initial_cwd: Option<String> = {
+        let args: Vec<String> = std::env::args().collect();
+        args.iter().position(|a| a == "--cwd")
+            .and_then(|pos| args.get(pos + 1))
+            .cloned()
+    };
+    let cwd_state = Arc::new(InitialCwdState(Mutex::new(initial_cwd)));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .manage(pty_state)
+        .manage(cwd_state)
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_icon(tauri::include_image!("icons/icon.png"));
@@ -167,14 +190,6 @@ pub fn run() {
             ];
             let augmented = format!("{}:{}", extra.join(":"), current_path);
             std::env::set_var("PATH", augmented);
-
-            // Support --cwd <path> so file managers can open AdvTerm in a specific directory
-            let args: Vec<String> = std::env::args().collect();
-            if let Some(pos) = args.iter().position(|a| a == "--cwd") {
-                if let Some(path) = args.get(pos + 1) {
-                    let _ = std::env::set_current_dir(path);
-                }
-            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -182,6 +197,7 @@ pub fn run() {
             pty_write,
             pty_resize,
             pty_close,
+            get_initial_cwd,
             check_command_exists,
             check_file_exists,
             run_headless,

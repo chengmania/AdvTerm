@@ -16,7 +16,7 @@ interface TabStore {
   tabs: Tab[];
   activeTabId: string | null;
   unreadTabs: string[];
-  addTab: (title?: string) => Promise<string>;
+  addTab: (title?: string, cwd?: string) => Promise<string>;
   closeTab: (id: string) => Promise<void>;
   setActiveTab: (id: string) => void;
   markUnread: (tabId: string) => void;
@@ -32,10 +32,12 @@ export const useTabStore = create<TabStore>((set, get) => ({
   activeTabId: null,
   unreadTabs: [],
 
-  addTab: async (title?: string) => {
+  addTab: async (title?: string, cwd?: string) => {
     const id = `tab-${Date.now()}`;
     const resolvedTitle = title ?? `Shell ${tabCounter++}`;
-    await invoke('pty_create', { tabId: id });
+    // For the first tab, ask Rust for the --cwd arg; subsequent tabs inherit nothing
+    const resolvedCwd = cwd ?? await invoke<string | null>('get_initial_cwd');
+    await invoke('pty_create', { tabId: id, cwd: resolvedCwd ?? undefined });
     set(state => ({
       tabs: [...state.tabs, { id, title: resolvedTitle, profile: 'shell' }],
       activeTabId: id,
