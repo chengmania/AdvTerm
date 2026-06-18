@@ -8,10 +8,11 @@ import { PROFILES } from '../profiles';
 
 interface Props {
   onOpenSettings: () => void;
+  onOpenHelp: () => void;
 }
 
-export default function TabBar({ onOpenSettings }: Props) {
-  const { tabs, activeTabId, addTab, closeTab, setActiveTab, activateProfile } = useTabStore();
+export default function TabBar({ onOpenSettings, onOpenHelp }: Props) {
+  const { tabs, activeTabId, unreadTabs, addTab, closeTab, setActiveTab, activateProfile } = useTabStore();
   const [installedProfiles, setInstalledProfiles] = useState<string[]>([]);
 
   useEffect(() => {
@@ -47,6 +48,12 @@ export default function TabBar({ onOpenSettings }: Props) {
             border: tab.id === activeTabId ? '1px solid #444' : '1px solid transparent',
           }}
         >
+          {unreadTabs.includes(tab.id) && (
+            <span title="Activity in background" style={{
+              width: 7, height: 7, borderRadius: '50%',
+              background: '#7eb8f7', display: 'inline-block', flexShrink: 0,
+            }} />
+          )}
           {tab.profile !== 'shell' && PROFILES[tab.profile] && (
             <span style={{ fontSize: '10px', background: '#2a3a4a', color: '#7eb8f7', borderRadius: '3px', padding: '1px 4px' }}>
               {PROFILES[tab.profile].name.split(' ')[0]}
@@ -71,21 +78,20 @@ export default function TabBar({ onOpenSettings }: Props) {
       <div style={{ width: '1px', background: '#2a2a2a', height: '18px', margin: '0 4px' }} />
 
       {/* One button per installed profile */}
-      {Object.values(PROFILES).map(p => {
-        const isInstalled = installedProfiles.includes(p.id);
+      {Object.values(PROFILES).filter(p => installedProfiles.includes(p.id)).map(p => {
         const isActive = activeProfile === p.id;
         return (
           <button
             key={p.id}
             onClick={() => activeTabId && !isActive && activateProfile(activeTabId, p.id)}
-            disabled={!isInstalled || isActive || !activeTabId}
-            title={!isInstalled ? `${p.name} not installed` : isActive ? `${p.name} active` : `Launch ${p.name} in current tab`}
+            disabled={isActive || !activeTabId}
+            title={isActive ? `${p.name} active` : `Launch ${p.name} in current tab`}
             style={{
-              background: isInstalled && !isActive ? '#1a2a1a' : 'none',
-              border: isInstalled && !isActive ? '1px solid #2a4a2a' : '1px solid transparent',
+              background: !isActive ? '#1a2a1a' : 'none',
+              border: !isActive ? '1px solid #2a4a2a' : '1px solid transparent',
               borderRadius: '4px',
-              color: !isInstalled || isActive ? '#444' : '#7bc47e',
-              cursor: !isInstalled || isActive ? 'not-allowed' : 'pointer',
+              color: isActive ? '#444' : '#7bc47e',
+              cursor: isActive ? 'default' : 'pointer',
               fontSize: '11px', padding: '3px 8px',
             }}
           >
@@ -96,6 +102,11 @@ export default function TabBar({ onOpenSettings }: Props) {
 
       <div style={{ flex: 1 }} />
 
+      <button
+        onClick={onOpenHelp}
+        title="Help & shortcuts"
+        style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '15px', padding: '0 6px' }}
+      >?</button>
       <button
         onClick={onOpenSettings}
         title="Settings"

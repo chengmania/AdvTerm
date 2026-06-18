@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
 * {
   margin: 0;
   padding: 0;
@@ -9,4 +11,46 @@ html, body, #root {
   height: 100%;
   overflow: hidden;
   background: #000;
+}
+
+/* Retro CRT effect overlay */
+.crt-container {
+  position: relative;
+}
+
+.crt-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.18) 0px,
+    rgba(0, 0, 0, 0.18) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.crt-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.45) 100%);
+}
+
+@keyframes crt-flicker {
+  0%   { opacity: 1; }
+  92%  { opacity: 1; }
+  93%  { opacity: 0.92; }
+  94%  { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+.crt-container .xterm {
+  animation: crt-flicker 6s infinite;
+  filter: brightness(1.05) contrast(1.1) saturate(1.2);
 }

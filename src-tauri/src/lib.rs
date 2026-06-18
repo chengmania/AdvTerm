@@ -5,7 +5,7 @@ use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 struct TabPty {
     writer: Box<dyn Write + Send>,
@@ -85,6 +85,33 @@ fn pty_close(tab_id: String, state: State<Arc<PtyState>>) -> Result<(), String> 
     Ok(())
 }
 
+// Session save / restore
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct SessionTab {
+    pub title:   String,
+    pub profile: String,
+}
+
+#[tauri::command]
+fn session_save(tabs: Vec<SessionTab>, app: AppHandle) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = dir.join("session.json");
+    let json = serde_json::to_string_pretty(&tabs).map_err(|e| e.to_string())?;
+    std::fs::write(path, json).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn session_load(app: AppHandle) -> Result<Vec<SessionTab>, String> {
+    let path = app.path().app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("session.json");
+    if !path.exists() { return Ok(vec![]); }
+    let json = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    serde_json::from_str(&json).map_err(|e| e.to_string())
+}
+
 // Generic profile-agnostic helpers
 
 #[tauri::command]
@@ -120,7 +147,14 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(pty_state)
+        .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_icon(tauri::include_image!("icons/icon.png"));
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             pty_create,
             pty_write,
@@ -129,6 +163,8 @@ pub fn run() {
             check_command_exists,
             check_file_exists,
             run_headless,
+            session_save,
+            session_load,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

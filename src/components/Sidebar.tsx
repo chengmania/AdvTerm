@@ -5,12 +5,14 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTabStore } from '../store';
 import { PROFILES, type ProfileDef } from '../profiles';
+import { termBridge } from '../terminalBridge';
 import UsageMeter from './UsageMeter';
 
 export default function Sidebar() {
   const { tabs, activeTabId } = useTabStore();
   const [filter, setFilter] = useState('');
   const filterRef = useRef<HTMLInputElement>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   // Per-profile install/auth state
   const [profileStatus, setProfileStatus] = useState<Record<string, { installed: boolean; authed: boolean }>>({});
@@ -29,6 +31,24 @@ export default function Sidebar() {
   const profileId = activeTab?.profile;
   const profile: ProfileDef | undefined = profileId ? PROFILES[profileId] : undefined;
   const status = profileId ? profileStatus[profileId] : undefined;
+
+  const copyText = (key: string, getText: () => string) => {
+    const text = getText();
+    if (!text.trim()) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(key);
+      setTimeout(() => setCopied(null), 1500);
+    }).catch(console.error);
+  };
+
+  const pasteFromClipboard = () => {
+    navigator.clipboard.readText().then(text => {
+      if (text && termBridge.pasteText) {
+        termBridge.pasteText(text);
+        window.dispatchEvent(new CustomEvent('advterm:focus-terminal'));
+      }
+    }).catch(console.error);
+  };
 
   const sendCommand = (cmd: string) => {
     if (!activeTabId) return;
@@ -104,6 +124,25 @@ export default function Sidebar() {
         </div>
       )}
 
+      {/* Clipboard helpers */}
+      <div style={{ padding: '6px 8px', borderBottom: '1px solid #2a2a2a', display: 'flex', gap: '4px' }}>
+        <button
+          onClick={() => copyText('block', () => termBridge.copyLastBlock?.() ?? '')}
+          title="Copy last output block (since last prompt)"
+          style={clipBtn(copied === 'block')}
+        >{copied === 'block' ? '✓ Copied' : 'Copy block'}</button>
+        <button
+          onClick={() => copyText('visible', () => termBridge.copyVisible?.() ?? '')}
+          title="Copy visible terminal contents"
+          style={clipBtn(copied === 'visible')}
+        >{copied === 'visible' ? '✓ Copied' : 'Copy view'}</button>
+        <button
+          onClick={pasteFromClipboard}
+          title="Paste clipboard into terminal"
+          style={clipBtn(false)}
+        >Paste</button>
+      </div>
+
       {/* 2-column slash palette */}
       {profile && (
         <div style={{ flex: 1, overflowY: 'auto', padding: '6px' }}>
@@ -132,3 +171,11 @@ export default function Sidebar() {
     </div>
   );
 }
+
+const clipBtn = (active: boolean): React.CSSProperties => ({
+  flex: 1, padding: '4px 2px', borderRadius: '4px', cursor: 'pointer',
+  background: active ? '#2a3a2a' : '#1a1a1a',
+  border: `1px solid ${active ? '#3a5a3a' : '#2a2a2a'}`,
+  color: active ? '#7bc47e' : '#777',
+  fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+});
