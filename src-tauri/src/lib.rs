@@ -153,6 +153,21 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_icon(tauri::include_image!("icons/icon.png"));
             }
+            // AppImages run with a stripped PATH — restore common user-local bin dirs
+            // so that `which claude`, `which aider`, etc. work correctly.
+            let home = std::env::var("HOME").unwrap_or_default();
+            let current_path = std::env::var("PATH").unwrap_or_default();
+            let extra = [
+                format!("{home}/.local/bin"),
+                format!("{home}/.npm-global/bin"),
+                format!("{home}/.cargo/bin"),
+                format!("{home}/.opencode/bin"),
+                format!("{home}/.nvm/bin"),
+                "/usr/local/bin".to_string(),
+            ];
+            let augmented = format!("{}:{}", extra.join(":"), current_path);
+            std::env::set_var("PATH", augmented);
+
             // Support --cwd <path> so file managers can open AdvTerm in a specific directory
             let args: Vec<String> = std::env::args().collect();
             if let Some(pos) = args.iter().position(|a| a == "--cwd") {
