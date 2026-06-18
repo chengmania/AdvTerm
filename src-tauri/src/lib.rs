@@ -153,6 +153,13 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_icon(tauri::include_image!("icons/icon.png"));
             }
+            // Support --cwd <path> so file managers can open AdvTerm in a specific directory
+            let args: Vec<String> = std::env::args().collect();
+            if let Some(pos) = args.iter().position(|a| a == "--cwd") {
+                if let Some(path) = args.get(pos + 1) {
+                    let _ = std::env::set_current_dir(path);
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
