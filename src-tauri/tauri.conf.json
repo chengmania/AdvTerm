@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "AdvTerm",
+        "title": "AdvTerm v0.1.0",
         "width": 1200,
         "height": 700,
         "transparent": true
