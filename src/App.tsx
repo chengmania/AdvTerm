@@ -4,6 +4,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { getVersion } from '@tauri-apps/api/app';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
@@ -90,6 +92,10 @@ export default function App() {
   // Tracks which background tabs have already triggered a notification this "session"
   // (cleared when user visits the tab, so they get one notification per new burst)
   const notifiedRef    = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    getVersion().then(v => getCurrentWindow().setTitle(`AdvTerm v${v}`));
+  }, []);
 
   // Stable ref so keyboard handler never goes stale
   const storeRef = useRef({ tabs, activeTabId, addTab, closeTab, setActiveTab });
