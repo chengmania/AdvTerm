@@ -21,6 +21,7 @@ interface TabStore {
   setActiveTab: (id: string) => void;
   markUnread: (tabId: string) => void;
   activateProfile: (tabId: string, profileId: string) => Promise<void>;
+  resumeSession: (profileId: string, resumeId: string) => Promise<void>;
   saveSession: () => Promise<void>;
   restoreSession: () => Promise<boolean>;
 }
@@ -56,6 +57,16 @@ export const useTabStore = create<TabStore>((set, get) => ({
           ? { ...t, profile: profileId, title: `${profile.name} ${tabCounter++}` }
           : t
       ),
+    }));
+  },
+
+  resumeSession: async (profileId: string, resumeId: string) => {
+    const profile = PROFILES[profileId];
+    if (!profile?.resumeCommand) return;
+    const id = await get().addTab(`${profile.name} (resumed)`);
+    await invoke('pty_write', { tabId: id, data: `${profile.resumeCommand} ${resumeId}\r` });
+    set(state => ({
+      tabs: state.tabs.map(t => t.id === id ? { ...t, profile: profileId } : t),
     }));
   },
 
@@ -117,6 +128,8 @@ interface SettingsStore {
   terminalTheme: string;
   terminalOpacity: number;
   customProfiles: ProfileDef[];
+  sessionRenames: Record<string, string>;
+  hiddenSessionIds: string[];
   setSidebarPosition: (pos: SidebarPosition) => void;
   setFontSize: (size: number) => void;
   setFontFamily: (family: string) => void;
@@ -124,6 +137,8 @@ interface SettingsStore {
   setTerminalOpacity: (opacity: number) => void;
   importProfiles: (profiles: ProfileDef[]) => void;
   removeCustomProfile: (id: string) => void;
+  renameSession: (uuid: string, name: string) => void;
+  hideSession: (uuid: string) => void;
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -135,6 +150,8 @@ export const useSettingsStore = create<SettingsStore>()(
       terminalTheme: 'dark',
       terminalOpacity: 1.0,
       customProfiles: [],
+      sessionRenames: {},
+      hiddenSessionIds: [],
       setSidebarPosition: (sidebarPosition) => set({ sidebarPosition }),
       setFontSize: (fontSize) => set({ fontSize }),
       setFontFamily: (fontFamily) => set({ fontFamily }),
@@ -148,6 +165,12 @@ export const useSettingsStore = create<SettingsStore>()(
       }),
       removeCustomProfile: (id) => set(state => ({
         customProfiles: state.customProfiles.filter(p => p.id !== id),
+      })),
+      renameSession: (uuid, name) => set(state => ({
+        sessionRenames: { ...state.sessionRenames, [uuid]: name },
+      })),
+      hideSession: (uuid) => set(state => ({
+        hiddenSessionIds: [...state.hiddenSessionIds, uuid],
       })),
     }),
     { name: 'advterm-settings' }

@@ -3,7 +3,7 @@
 
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use std::collections::HashMap;
-use std::io::{Read, Write};
+use std::io::{BufRead, Read, Write};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -125,6 +125,85 @@ fn session_load(app: AppHandle) -> Result<Vec<SessionTab>, String> {
     serde_json::from_str(&json).map_err(|e| e.to_string())
 }
 
+// Claude session history — reads ~/.claude/projects/<slug>/<uuid>.jsonl
+
+#[derive(serde::Serialize)]
+struct ClaudeSessionInfo {
+    session_id: String,
+    project_name: String,
+    timestamp: String,
+    first_message: String,
+}
+
+#[tauri::command]
+fn list_claude_sessions() -> Vec<ClaudeSessionInfo> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let projects_dir = std::path::Path::new(&home).join(".claude").join("projects");
+    if !projects_dir.exists() { return vec![]; }
+
+    let mut sessions = vec![];
+    let Ok(proj_entries) = std::fs::read_dir(&projects_dir) else { return vec![]; };
+
+    for proj in proj_entries.flatten() {
+        if !proj.file_type().map(|t| t.is_dir()).unwrap_or(false) { continue; }
+        let slug = proj.file_name().to_string_lossy().to_string();
+        let project_name = slug.trim_start_matches('-')
+            .rsplit('-').next().unwrap_or(&slug).to_string();
+
+        let Ok(files) = std::fs::read_dir(proj.path()) else { continue; };
+        for f in files.flatten() {
+            let path = f.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("jsonl") { continue; }
+            let session_id = match path.file_stem().and_then(|s| s.to_str()) {
+                Some(s) => s.to_string(),
+                None => continue,
+            };
+
+            // Read line-by-line (early exit once we have what we need — files can be large)
+            let Ok(file) = std::fs::File::open(&path) else { continue; };
+            let reader = std::io::BufReader::new(file);
+            let mut timestamp = String::new();
+            let mut first_message = String::new();
+
+            for line in reader.lines() {
+                let Ok(line) = line else { break; };
+                let Ok(val) = serde_json::from_str::<serde_json::Value>(&line) else { continue; };
+                if val["type"] == "user" {
+                    if timestamp.is_empty() {
+                        timestamp = val["timestamp"].as_str().unwrap_or("").to_string();
+                    }
+                    if first_message.is_empty() {
+                        // content can be a plain string or an array of content blocks
+                        if let Some(c) = val["message"]["content"].as_str() {
+                            first_message = c.chars().take(80).collect();
+                        } else if let Some(arr) = val["message"]["content"].as_array() {
+                            for item in arr {
+                                if let Some(text) = item["text"].as_str() {
+                                    first_message = text.chars().take(80).collect();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if !timestamp.is_empty() && !first_message.is_empty() { break; }
+                }
+            }
+
+            if !timestamp.is_empty() {
+                sessions.push(ClaudeSessionInfo {
+                    session_id,
+                    project_name: project_name.clone(),
+                    timestamp,
+                    first_message,
+                });
+            }
+        }
+    }
+
+    sessions.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    sessions
+}
+
 // Generic profile-agnostic helpers
 
 #[tauri::command]
@@ -203,6 +282,7 @@ pub fn run() {
             run_headless,
             session_save,
             session_load,
+            list_claude_sessions,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -83,6 +83,7 @@ export default function App() {
   const [helpOpen, setHelpOpen]         = useState(false);
   const [searchOpen, setSearchOpen]     = useState(false);
   const [inputType, setInputType]       = useState<InputType>(null);
+  const [ctxMenu, setCtxMenu]           = useState<{ x: number; y: number; hasSel: boolean } | null>(null);
 
   const instances      = useRef<Map<string, TermInstance>>(new Map());
   const containerRefs  = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -133,6 +134,22 @@ export default function App() {
       // Keyboard shortcuts — intercept before xterm sends to PTY
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         if (e.type !== 'keydown') return true;
+        if (e.ctrlKey && e.shiftKey) {
+          if (e.key === 'C') {
+            e.preventDefault();
+            const sel = term.getSelection();
+            if (sel) navigator.clipboard.writeText(sel).catch(console.error);
+            return false;
+          }
+          if (e.key === 'V') {
+            e.preventDefault();
+            const aid = storeRef.current.activeTabId;
+            navigator.clipboard.readText().then(text => {
+              if (text && aid) invoke('pty_write', { tabId: aid, data: text }).catch(console.error);
+            }).catch(console.error);
+            return false;
+          }
+        }
         if (e.ctrlKey) {
           const { tabs: t, activeTabId: aid, addTab: add, closeTab: close, setActiveTab: setActive } = storeRef.current;
           if (e.key === 't') { e.preventDefault(); add(); return false; }
@@ -162,6 +179,7 @@ export default function App() {
 
       listen<string>(`pty-data-${tab.id}`, ev => {
         term.write(ev.payload);
+
         // Background tab activity: badge + OS notification
         const aid = storeRef.current.activeTabId;
         if (tab.id !== aid) {
@@ -293,6 +311,37 @@ export default function App() {
     if (inst && !inst.term.element) { inst.term.open(el); inst.fit.fit(); inst.term.focus(); }
   };
 
+  // Dismiss context menu on any click outside it
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const dismiss = () => setCtxMenu(null);
+    window.addEventListener('click', dismiss);
+    return () => window.removeEventListener('click', dismiss);
+  }, [ctxMenu]);
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const inst = instances.current.get(activeTabId ?? '');
+    const hasSel = inst ? inst.term.hasSelection() : false;
+    setCtxMenu({ x: e.clientX, y: e.clientY, hasSel });
+  };
+
+  const handleCtxCopy = () => {
+    const inst = instances.current.get(activeTabId ?? '');
+    if (inst) {
+      const text = inst.term.getSelection();
+      if (text) navigator.clipboard.writeText(text).catch(console.error);
+    }
+    setCtxMenu(null);
+  };
+
+  const handleCtxPaste = () => {
+    navigator.clipboard.readText().then(text => {
+      if (text && activeTabId) invoke('pty_write', { tabId: activeTabId, data: text }).catch(console.error);
+    }).catch(console.error);
+    setCtxMenu(null);
+  };
+
   const handleSearch = (query: string, dir: 'next' | 'prev') => {
     const inst = instances.current.get(activeTabId ?? '');
     if (!inst) return false;
@@ -319,6 +368,7 @@ export default function App() {
         <div
           className={containerClass}
           style={{ flex: 1, position: 'relative', overflow: 'hidden' }}
+          onContextMenu={handleContextMenu}
         >
           {tabs.map(tab => (
             <div
@@ -337,6 +387,39 @@ export default function App() {
               onSearch={handleSearch}
               onClose={() => { setSearchOpen(false); instances.current.get(activeTabId ?? '')?.term.focus(); }}
             />
+          )}
+
+          {/* Right-click context menu */}
+          {ctxMenu && (
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                position: 'fixed', top: ctxMenu.y, left: ctxMenu.x, zIndex: 1000,
+                background: '#252525', border: '1px solid #555', borderRadius: 4,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.6)', minWidth: 130, padding: '4px 0',
+                fontSize: 13, userSelect: 'none',
+              }}
+            >
+              <div
+                onClick={ctxMenu.hasSel ? handleCtxCopy : undefined}
+                style={{
+                  padding: '6px 16px', cursor: ctxMenu.hasSel ? 'pointer' : 'default',
+                  opacity: ctxMenu.hasSel ? 1 : 0.35, color: '#e0e0e0',
+                }}
+                onMouseEnter={e => { if (ctxMenu.hasSel) (e.target as HTMLElement).style.background = '#3a3a3a'; }}
+                onMouseLeave={e => { (e.target as HTMLElement).style.background = ''; }}
+              >
+                Copy
+              </div>
+              <div
+                onClick={handleCtxPaste}
+                style={{ padding: '6px 16px', cursor: 'pointer', color: '#e0e0e0' }}
+                onMouseEnter={e => { (e.target as HTMLElement).style.background = '#3a3a3a'; }}
+                onMouseLeave={e => { (e.target as HTMLElement).style.background = ''; }}
+              >
+                Paste
+              </div>
+            </div>
           )}
 
           {/* Input type classifier badge */}

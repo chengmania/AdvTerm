@@ -24,6 +24,7 @@ export interface ProfileDef {
   installable: boolean;         // true = AdvTerm can install it; false = show URL only
   slashCommands: SlashCommand[];
   usage?: UsageConfig;
+  resumeCommand?: string;       // e.g. 'claude --resume' — UUID appended at launch
 }
 
 // ── Claude Code ──────────────────────────────────────────────────────────────
@@ -32,6 +33,7 @@ export const CLAUDE_PROFILE: ProfileDef = {
   id: 'claude',
   name: 'Claude Code',
   launchCommand: 'claude',
+  resumeCommand: 'claude --resume',
   installCommand: 'claude',
   authFilePath: '~/.claude/.credentials.json',
   installScript: 'npm install -g @anthropic-ai/claude-code',
