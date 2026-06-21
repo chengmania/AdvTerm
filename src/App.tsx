@@ -179,9 +179,15 @@ export default function App() {
       const container = containerRefs.current.get(tab.id);
       if (container) {
         term.open(container); fit.fit(); term.focus();
+        // Keep a ref of the last non-empty selection so right-click copy works
+        // even after xterm clears the visual selection on mousedown.
+        term.onSelectionChange(() => {
+          if (term.hasSelection()) savedSelectionRef.current = term.getSelection();
+        });
+        // Non-right-click means the user intentionally deselected — clear the ref.
         container.addEventListener('mousedown', (e) => {
-          if (e.button === 2) savedSelectionRef.current = term.getSelection();
-        }, { capture: true });
+          if (e.button !== 2) savedSelectionRef.current = '';
+        });
       }
 
       listen<string>(`pty-data-${tab.id}`, ev => {
@@ -317,9 +323,12 @@ export default function App() {
     const inst = instances.current.get(tabId);
     if (inst && !inst.term.element) {
       inst.term.open(el); inst.fit.fit(); inst.term.focus();
+      inst.term.onSelectionChange(() => {
+        if (inst.term.hasSelection()) savedSelectionRef.current = inst.term.getSelection();
+      });
       el.addEventListener('mousedown', (e) => {
-        if (e.button === 2) savedSelectionRef.current = inst.term.getSelection();
-      }, { capture: true });
+        if (e.button !== 2) savedSelectionRef.current = '';
+      });
     }
   };
 
