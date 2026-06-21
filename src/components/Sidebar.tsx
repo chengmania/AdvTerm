@@ -29,6 +29,7 @@ export default function Sidebar() {
   const filterRef = useRef<HTMLInputElement>(null);
   const [hoveredCmd, setHoveredCmd] = useState<{ cmd: string; desc: string } | null>(null);
   const [diskSessions, setDiskSessions] = useState<ClaudeSessionInfo[]>([]);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
 
   // Per-profile install/auth state
   const [profileStatus, setProfileStatus] = useState<Record<string, { installed: boolean; authed: boolean }>>({});
@@ -114,27 +115,41 @@ export default function Sidebar() {
       {/* Usage meter — only when profile has usage config */}
       {profile?.usage && <UsageMeter config={profile.usage} />}
 
-      {/* Sessions */}
+      {/* Sessions — collapsible */}
       <div style={{ borderBottom: '1px solid #2a2a2a' }}>
-        <div style={{ padding: '6px 12px 4px', fontSize: '10px', fontWeight: 600, color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span>Sessions</span>
-          <button onClick={loadSessions} title="Refresh session list" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#444', fontSize: '12px', padding: '0 2px', lineHeight: 1 }}>↻</button>
-        </div>
-        {visibleSessions.length === 0 ? (
-          <div style={{ padding: '6px 12px 8px', fontSize: '11px', color: '#333' }}>No sessions yet</div>
-        ) : (
-          <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-            {visibleSessions.map(s => (
-              <SessionRow
-                key={s.session_id}
-                session={s}
-                displayName={sessionRenames[s.session_id] ?? `${s.project_name} · ${fmtDate(s.timestamp)}`}
-                onResume={() => resumeSession('claude', s.session_id)}
-                onRename={(name) => renameSession(s.session_id, name)}
-                onHide={() => hideSession(s.session_id)}
-              />
-            ))}
+        <div
+          onClick={() => setSessionsOpen(o => !o)}
+          style={{ padding: '6px 12px', fontSize: '10px', fontWeight: 600, color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
+        >
+          <span>{sessionsOpen ? '▾' : '▸'} Sessions</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {sessionsOpen && (
+              <button
+                onClick={e => { e.stopPropagation(); loadSessions(); }}
+                title="Refresh"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#444', fontSize: '12px', padding: '0 2px', lineHeight: 1 }}
+              >↻</button>
+            )}
+            <span style={{ color: '#3a3a3a', fontSize: '10px' }}>{visibleSessions.length}</span>
           </div>
+        </div>
+        {sessionsOpen && (
+          visibleSessions.length === 0 ? (
+            <div style={{ padding: '4px 12px 8px', fontSize: '11px', color: '#333' }}>No sessions yet</div>
+          ) : (
+            <div>
+              {visibleSessions.map(s => (
+                <SessionRow
+                  key={s.session_id}
+                  session={s}
+                  displayName={sessionRenames[s.session_id] ?? `${s.project_name} · ${fmtDate(s.timestamp)}`}
+                  onResume={() => { resumeSession('claude', s.session_id); setSessionsOpen(false); }}
+                  onRename={(name) => renameSession(s.session_id, name)}
+                  onHide={() => hideSession(s.session_id)}
+                />
+              ))}
+            </div>
+          )
         )}
       </div>
 

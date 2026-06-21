@@ -201,6 +201,9 @@ fn list_claude_sessions() -> Vec<ClaudeSessionInfo> {
     }
 
     sessions.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    // One entry per project — keep most recent (list is already newest-first)
+    let mut seen = std::collections::HashSet::new();
+    sessions.retain(|s| seen.insert(s.project_name.clone()));
     sessions
 }
 
