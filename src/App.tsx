@@ -139,7 +139,7 @@ export default function App() {
         if (e.ctrlKey && e.shiftKey) {
           if (e.key === 'C') {
             e.preventDefault();
-            const sel = term.getSelection();
+            const sel = term.getSelection() || window.getSelection()?.toString() || '';
             if (sel) navigator.clipboard.writeText(sel).catch(console.error);
             return false;
           }
@@ -182,13 +182,14 @@ export default function App() {
         // Keep a ref of the last non-empty selection so right-click copy works
         // even after xterm clears the visual selection on mousedown.
         term.onSelectionChange(() => {
-          if (term.hasSelection()) savedSelectionRef.current = term.getSelection();
+          const s = term.getSelection() || window.getSelection()?.toString() || '';
+          if (s) savedSelectionRef.current = s;
         });
         // Capture phase fires before xterm's handlers, so we save the selection
         // before xterm can modify it (rightClickSelectsWord or any clear-on-click).
         container.addEventListener('mousedown', (e) => {
           if (e.button === 2) {
-            const sel = term.getSelection();
+            const sel = term.getSelection() || window.getSelection()?.toString() || '';
             if (sel) savedSelectionRef.current = sel;
           } else {
             savedSelectionRef.current = '';
@@ -330,11 +331,12 @@ export default function App() {
     if (inst && !inst.term.element) {
       inst.term.open(el); inst.fit.fit(); inst.term.focus();
       inst.term.onSelectionChange(() => {
-        if (inst.term.hasSelection()) savedSelectionRef.current = inst.term.getSelection();
+        const s = inst.term.getSelection() || window.getSelection()?.toString() || '';
+        if (s) savedSelectionRef.current = s;
       });
       el.addEventListener('mousedown', (e) => {
         if (e.button === 2) {
-          const sel = inst.term.getSelection();
+          const sel = inst.term.getSelection() || window.getSelection()?.toString() || '';
           if (sel) savedSelectionRef.current = sel;
         } else {
           savedSelectionRef.current = '';
@@ -353,17 +355,15 @@ export default function App() {
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Try live selection first (works when xterm hasn't cleared it yet),
-    // then fall back to what was captured on mousedown.
     const inst = instances.current.get(activeTabId ?? '');
-    const liveSel = inst?.term.getSelection() ?? '';
+    const liveSel = inst?.term.getSelection() || window.getSelection()?.toString() || '';
     if (liveSel) savedSelectionRef.current = liveSel;
     setCtxMenu({ x: e.clientX, y: e.clientY, hasSel: savedSelectionRef.current.length > 0 });
   };
 
   const handleCtxCopy = () => {
     const inst = instances.current.get(activeTabId ?? '');
-    const text = inst?.term.getSelection() || savedSelectionRef.current;
+    const text = inst?.term.getSelection() || window.getSelection()?.toString() || savedSelectionRef.current;
     if (text) navigator.clipboard.writeText(text).catch(console.error);
     savedSelectionRef.current = '';
     setCtxMenu(null);
