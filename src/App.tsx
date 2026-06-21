@@ -184,17 +184,45 @@ export default function App() {
           const s = term.getSelection() || window.getSelection()?.toString() || '';
           if (s) savedSelectionRef.current = s;
         });
-        // When a new left-click starts, the previous selection is being abandoned.
-        container.addEventListener('pointerdown', (e) => {
-          if (e.button !== 2) savedSelectionRef.current = '';
+
+        // Buffer-based selection: track drag coords and read xterm buffer on mouseup.
+        // This works even when Claude's mouse-reporting mode prevents DOM/xterm selection.
+        const dragStart = { x: 0, y: 0 };
+        container.addEventListener('mousedown', (e) => {
+          if (e.button !== 0) return;
+          savedSelectionRef.current = '';
+          dragStart.x = e.clientX;
+          dragStart.y = e.clientY;
         }, true);
-        // Save the selection the moment the user lifts the mouse after dragging.
-        // This runs before xterm gets a chance to clear the DOM selection on
-        // any subsequent right-click, so savedSelectionRef survives into contextmenu.
         container.addEventListener('mouseup', (e) => {
           if (e.button !== 0) return;
-          const sel = term.getSelection() || window.getSelection()?.toString() || '';
-          savedSelectionRef.current = sel;
+          // Standard selection APIs (works in plain shell without mouse reporting)
+          const stdSel = term.getSelection() || window.getSelection()?.toString() || '';
+          if (stdSel) { savedSelectionRef.current = stdSel; return; }
+          // Skip if no real drag (just a click)
+          if (Math.abs(e.clientX - dragStart.x) < 3 && Math.abs(e.clientY - dragStart.y) < 3) return;
+          // Fall back: compute from drag coords + xterm buffer
+          const rect = container.getBoundingClientRect();
+          if (!rect.width || !rect.height) return;
+          const cellW = rect.width / term.cols;
+          const cellH = rect.height / term.rows;
+          let r0 = Math.max(0, Math.min(Math.floor((dragStart.y - rect.top) / cellH), term.rows - 1));
+          let c0 = Math.max(0, Math.min(Math.floor((dragStart.x - rect.left) / cellW), term.cols - 1));
+          let r1 = Math.max(0, Math.min(Math.floor((e.clientY - rect.top) / cellH), term.rows - 1));
+          let c1 = Math.max(0, Math.min(Math.floor((e.clientX - rect.left) / cellW), term.cols - 1));
+          if (r0 > r1 || (r0 === r1 && c0 > c1)) { [r0, r1] = [r1, r0]; [c0, c1] = [c1, c0]; }
+          const buf = term.buffer.active;
+          const chunks: string[] = [];
+          for (let r = r0; r <= r1; r++) {
+            const line = buf.getLine(buf.viewportY + r);
+            const s = line ? line.translateToString(true) : '';
+            if (r0 === r1) chunks.push(s.slice(c0, c1 + 1));
+            else if (r === r0) chunks.push(s.slice(c0));
+            else if (r === r1) chunks.push(s.slice(0, c1 + 1));
+            else chunks.push(s);
+          }
+          const text = chunks.join('\n').replace(/\s+$/, '');
+          if (text) savedSelectionRef.current = text;
         });
       }
 
@@ -335,13 +363,39 @@ export default function App() {
         const s = inst.term.getSelection() || window.getSelection()?.toString() || '';
         if (s) savedSelectionRef.current = s;
       });
-      el.addEventListener('pointerdown', (e) => {
-        if (e.button !== 2) savedSelectionRef.current = '';
+      const dragStart2 = { x: 0, y: 0 };
+      el.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        savedSelectionRef.current = '';
+        dragStart2.x = e.clientX;
+        dragStart2.y = e.clientY;
       }, true);
       el.addEventListener('mouseup', (e) => {
         if (e.button !== 0) return;
-        const sel = inst.term.getSelection() || window.getSelection()?.toString() || '';
-        savedSelectionRef.current = sel;
+        const stdSel = inst.term.getSelection() || window.getSelection()?.toString() || '';
+        if (stdSel) { savedSelectionRef.current = stdSel; return; }
+        if (Math.abs(e.clientX - dragStart2.x) < 3 && Math.abs(e.clientY - dragStart2.y) < 3) return;
+        const rect = el.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const cellW = rect.width / inst.term.cols;
+        const cellH = rect.height / inst.term.rows;
+        let r0 = Math.max(0, Math.min(Math.floor((dragStart2.y - rect.top) / cellH), inst.term.rows - 1));
+        let c0 = Math.max(0, Math.min(Math.floor((dragStart2.x - rect.left) / cellW), inst.term.cols - 1));
+        let r1 = Math.max(0, Math.min(Math.floor((e.clientY - rect.top) / cellH), inst.term.rows - 1));
+        let c1 = Math.max(0, Math.min(Math.floor((e.clientX - rect.left) / cellW), inst.term.cols - 1));
+        if (r0 > r1 || (r0 === r1 && c0 > c1)) { [r0, r1] = [r1, r0]; [c0, c1] = [c1, c0]; }
+        const buf = inst.term.buffer.active;
+        const chunks: string[] = [];
+        for (let r = r0; r <= r1; r++) {
+          const line = buf.getLine(buf.viewportY + r);
+          const s = line ? line.translateToString(true) : '';
+          if (r0 === r1) chunks.push(s.slice(c0, c1 + 1));
+          else if (r === r0) chunks.push(s.slice(c0));
+          else if (r === r1) chunks.push(s.slice(0, c1 + 1));
+          else chunks.push(s);
+        }
+        const text = chunks.join('\n').replace(/\s+$/, '');
+        if (text) savedSelectionRef.current = text;
       });
     }
   };
