@@ -179,22 +179,23 @@ export default function App() {
       const container = containerRefs.current.get(tab.id);
       if (container) {
         term.open(container); fit.fit(); term.focus();
-        // Keep a ref of the last non-empty selection so right-click copy works
-        // even after xterm clears the visual selection on mousedown.
+        // onSelectionChange works when xterm canvas selection is active (plain shell).
         term.onSelectionChange(() => {
           const s = term.getSelection() || window.getSelection()?.toString() || '';
           if (s) savedSelectionRef.current = s;
         });
-        // pointerdown fires before mousedown — capture here before xterm's handler
-        // calls removeAllRanges() when mouse-reporting mode (Claude) is active.
+        // When a new left-click starts, the previous selection is being abandoned.
         container.addEventListener('pointerdown', (e) => {
-          if (e.button === 2) {
-            const sel = term.getSelection() || window.getSelection()?.toString() || '';
-            if (sel) savedSelectionRef.current = sel;
-          } else {
-            savedSelectionRef.current = '';
-          }
+          if (e.button !== 2) savedSelectionRef.current = '';
         }, true);
+        // Save the selection the moment the user lifts the mouse after dragging.
+        // This runs before xterm gets a chance to clear the DOM selection on
+        // any subsequent right-click, so savedSelectionRef survives into contextmenu.
+        container.addEventListener('mouseup', (e) => {
+          if (e.button !== 0) return;
+          const sel = term.getSelection() || window.getSelection()?.toString() || '';
+          savedSelectionRef.current = sel;
+        });
       }
 
       listen<string>(`pty-data-${tab.id}`, ev => {
@@ -335,13 +336,13 @@ export default function App() {
         if (s) savedSelectionRef.current = s;
       });
       el.addEventListener('pointerdown', (e) => {
-        if (e.button === 2) {
-          const sel = inst.term.getSelection() || window.getSelection()?.toString() || '';
-          if (sel) savedSelectionRef.current = sel;
-        } else {
-          savedSelectionRef.current = '';
-        }
+        if (e.button !== 2) savedSelectionRef.current = '';
       }, true);
+      el.addEventListener('mouseup', (e) => {
+        if (e.button !== 0) return;
+        const sel = inst.term.getSelection() || window.getSelection()?.toString() || '';
+        savedSelectionRef.current = sel;
+      });
     }
   };
 
