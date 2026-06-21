@@ -90,7 +90,9 @@ export default function App() {
   const lineBufferRef  = useRef('');
   // Tracks which background tabs have already triggered a notification this "session"
   // (cleared when user visits the tab, so they get one notification per new burst)
-  const notifiedRef    = useRef<Set<string>>(new Set());
+  const notifiedRef      = useRef<Set<string>>(new Set());
+  // Right-click copy: capture selection on mousedown before xterm clears it
+  const savedSelectionRef = useRef<string>('');
 
   // Stable ref so keyboard handler never goes stale
   const storeRef = useRef({ tabs, activeTabId, addTab, closeTab, setActiveTab });
@@ -175,7 +177,12 @@ export default function App() {
       instances.current.set(tab.id, instance);
 
       const container = containerRefs.current.get(tab.id);
-      if (container) { term.open(container); fit.fit(); term.focus(); }
+      if (container) {
+        term.open(container); fit.fit(); term.focus();
+        container.addEventListener('mousedown', (e) => {
+          if (e.button === 2) savedSelectionRef.current = term.getSelection();
+        }, { capture: true });
+      }
 
       listen<string>(`pty-data-${tab.id}`, ev => {
         term.write(ev.payload);
@@ -308,7 +315,12 @@ export default function App() {
     if (!el) return;
     containerRefs.current.set(tabId, el);
     const inst = instances.current.get(tabId);
-    if (inst && !inst.term.element) { inst.term.open(el); inst.fit.fit(); inst.term.focus(); }
+    if (inst && !inst.term.element) {
+      inst.term.open(el); inst.fit.fit(); inst.term.focus();
+      el.addEventListener('mousedown', (e) => {
+        if (e.button === 2) savedSelectionRef.current = inst.term.getSelection();
+      }, { capture: true });
+    }
   };
 
   // Dismiss context menu on any click outside it
@@ -321,17 +333,14 @@ export default function App() {
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    const inst = instances.current.get(activeTabId ?? '');
-    const hasSel = inst ? inst.term.hasSelection() : false;
-    setCtxMenu({ x: e.clientX, y: e.clientY, hasSel });
+    // savedSelectionRef was captured on mousedown before xterm cleared the selection
+    setCtxMenu({ x: e.clientX, y: e.clientY, hasSel: savedSelectionRef.current.length > 0 });
   };
 
   const handleCtxCopy = () => {
-    const inst = instances.current.get(activeTabId ?? '');
-    if (inst) {
-      const text = inst.term.getSelection();
-      if (text) navigator.clipboard.writeText(text).catch(console.error);
-    }
+    const text = savedSelectionRef.current;
+    if (text) navigator.clipboard.writeText(text).catch(console.error);
+    savedSelectionRef.current = '';
     setCtxMenu(null);
   };
 
