@@ -185,9 +185,9 @@ export default function App() {
           const s = term.getSelection() || window.getSelection()?.toString() || '';
           if (s) savedSelectionRef.current = s;
         });
-        // Capture phase fires before xterm's handlers, so we save the selection
-        // before xterm can modify it (rightClickSelectsWord or any clear-on-click).
-        container.addEventListener('mousedown', (e) => {
+        // pointerdown fires before mousedown — capture here before xterm's handler
+        // calls removeAllRanges() when mouse-reporting mode (Claude) is active.
+        container.addEventListener('pointerdown', (e) => {
           if (e.button === 2) {
             const sel = term.getSelection() || window.getSelection()?.toString() || '';
             if (sel) savedSelectionRef.current = sel;
@@ -334,7 +334,7 @@ export default function App() {
         const s = inst.term.getSelection() || window.getSelection()?.toString() || '';
         if (s) savedSelectionRef.current = s;
       });
-      el.addEventListener('mousedown', (e) => {
+      el.addEventListener('pointerdown', (e) => {
         if (e.button === 2) {
           const sel = inst.term.getSelection() || window.getSelection()?.toString() || '';
           if (sel) savedSelectionRef.current = sel;
